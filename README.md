@@ -1,5 +1,6 @@
 # Vision-threeD
 # Intel 3D camera launch
+# Environment: Anaconda2020.11(python3.9)
 import pyrealsense2 as rs
 import numpy as np
 import cv2
