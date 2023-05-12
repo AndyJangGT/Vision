@@ -1,0 +1,60 @@
+import cv2
+import numpy as np
+import glob
+
+# 找棋盘格角点
+criteria = (cv2.TermCriteria_EPS + cv2.TermCriteria_MAX_ITER, 30, 0.001)  # 最大迭代次数,迭代停止前精度
+
+# 棋盘格模板规格
+w = 13  # 内角点数，内角点是和其他格子连着的点
+h = 6
+# 世界坐标系中的棋盘格点,例如(0,0,0), (1,0,0), (2,0,0)..去掉Z坐标，记为二维矩阵
+world = np.zeros((w * h, 3), np.float32)
+world[:, 0:2] = np.mgrid[0:w, 0:h].T.reshape(-1, 2)
+
+# 储存棋盘格角点的世界坐标和图像坐标对
+world_points = []  # 世界坐标的三维点
+image_points = []  # 像平面二维点
+
+images = glob.glob(
+    "D:\\__DATA\\__Data_Sets\\thuD_camera\\colorshot_*.jpg")  # D:\\__DATA\\__Data_Sets\\thuD_camera\\color_shot_*.jpg  C:\\Users\AndyJang\Desktop\\0*.jpg
+for fname in images:
+    img = cv2.imread(fname)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    ret, corners = cv2.findChessboardCorners(gray, (w, h), None)
+    print(fname, ret)
+    if ret == True:
+        cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        world_points.append(world)
+        image_points.append(corners)
+        cv2.drawChessboardCorners(img, (w, h), corners, ret)
+        cv2.imshow('findCorners', img)
+        cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+# 标定、去畸变
+ret, matrix, distortion, r_vectors, t_vectors = cv2.calibrateCamera(world_points, image_points, gray.shape[::-1], None, None)
+
+print (("ret:"),ret) # 重投影误差(表标定结果精度，越小标定越准确)
+print (("camera matrix:\n"),matrix) # 内参数矩阵
+print (("distortion coefficient:\n"),distortion) # 畸变系数
+print (("r_vectors:\n"),r_vectors) # 旋转向量(外参)
+print (("t_vectors:\n"),t_vectors) # 平移向量(外参)
+
+# 去畸变
+img2 = cv2.imread('picture/m2.jpg')
+h,w = img2.shape[:2]
+newcameramtx, roi=cv2.getOptimalNewCameraMatrix(matrixtx,distortion,(w,h),0,(w,h))
+distortion = cv2.undistort(img2, matrix, distortion, None, newcameramtx)
+x,y,w,h = roi
+distortion = distortion[y:y+h, x:x+w]
+cv2.imwrite('calibresult.jpg',dst)
+
+# 反投影误差
+total_error = 0
+for i in range(len(objpoints)):
+    image_points, _ = cv2.projectPoints(world_points[i], r_vectors[i], t_vectors[i], matrix, distortion)
+    error = cv2.norm(image_points[i],imgpoints2, cv2.NORM_L2)/len(imgpoints2)
+    total_error += error
+print (("total error: "), total_error/len(world_points))
+
